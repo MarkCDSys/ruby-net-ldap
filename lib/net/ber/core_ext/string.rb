@@ -16,11 +16,27 @@ module Net::BER::Extensions::String
     [code].pack('C') + raw_string.length.to_ber_length_encoding + raw_string
   end
 
+  ##
+  # Converts a string to a BER string but does *not* encode to UTF-8 first.
+  # This is required for proper representation of binary data for Microsoft
+  # Active Directory
+  def to_ber_bin(code = 0x04)
+    [code].pack('C') + length.to_ber_length_encoding + self
+  end
+
   def raw_utf8_encoded
     if self.respond_to?(:encode)
       # Strings should be UTF-8 encoded according to LDAP.
       # However, the BER code is not necessarily valid UTF-8
-      self.encode('UTF-8').force_encoding('ASCII-8BIT')
+      begin
+        self.encode('UTF-8').force_encoding('ASCII-8BIT')
+      rescue Encoding::UndefinedConversionError
+        self
+      rescue Encoding::ConverterNotFoundError
+        self
+      rescue Encoding::InvalidByteSequenceError
+        self
+      end
     else
       self
     end
@@ -59,6 +75,6 @@ module Net::BER::Extensions::String
   end
 
   def reject_empty_ber_arrays
-    self.gsub(/0\000/n,'')
+    self.gsub(/0\000/n, '')
   end
 end
